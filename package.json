@@ -1,0 +1,26 @@
+{
+  "name": "machine-pay-mario-backend",
+  "version": "1.0.0",
+  "description": "Backend Express para proxy seguro entre o frontend Machine Pay e a OpenAI.",
+  "main": "server.js",
+  "scripts": {
+    "build": "echo \"No build step required\"",
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "machine-pay",
+    "openai",
+    "express",
+    "render"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
