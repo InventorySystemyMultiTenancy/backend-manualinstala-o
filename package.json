@@ -4,7 +4,7 @@
   "description": "Backend Express para proxy seguro entre o frontend Machine Pay e a OpenAI.",
   "main": "server.js",
   "scripts": {
-    "build": "echo \"No build step required\"",
+    "build": "npm install",
     "start": "node server.js",
     "dev": "node server.js"
   },
@@ -21,6 +21,6 @@
     "express": "^4.19.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": "22.x"
   }
 }
