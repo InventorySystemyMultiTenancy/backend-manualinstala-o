@@ -21,7 +21,7 @@ const MACHINEFRIEND_HISTORY_LIMIT = Number(
   process.env.MACHINEFRIEND_HISTORY_LIMIT || 6
 );
 const MACHINEFRIEND_MAX_OUTPUT_TOKENS = Number(
-  process.env.MACHINEFRIEND_MAX_OUTPUT_TOKENS || 350
+  process.env.MACHINEFRIEND_MAX_OUTPUT_TOKENS || 700
 );
 
 const MACHINEFRIEND_CONTEXT = `
@@ -112,6 +112,24 @@ const getOutputText = (data) => {
     .trim();
 };
 
+const getLastUserMessage = (messages) =>
+  [...messages]
+    .reverse()
+    .find((message) => message.role === 'user')?.content || '';
+
+const createLocalFallbackAnswer = (messages) => {
+  const lastMessage = String(getLastUserMessage(messages)).toLowerCase();
+
+  if (
+    lastMessage.includes('sem chicote') &&
+    (lastMessage.includes('noteiro') || lastMessage.includes('nota'))
+  ) {
+    return 'Claro. Primeiro desligue a maquina da tomada antes de mexer nos fios. Sem chicote, ligue vermelho da Machine Pay no positivo/energia do noteiro, preto no terra/negativo e branco no fio coin/pulso do noteiro. No noteiro geralmente energia e amarelo, coin e azul ou branco, e terra e preto ou roxo. Me diga quais cores aparecem no seu noteiro para eu confirmar com voce.';
+  }
+
+  return 'Tive uma falha para montar a resposta automatica agora, mas sigo com voce. Me diga em uma frase o que aparece na Machine Pay ou em qual etapa voce travou.';
+};
+
 const normalizeMessages = (messages) =>
   messages
     .filter((message) => ['user', 'assistant'].includes(message.role))
@@ -143,7 +161,7 @@ const createMachineFriendAnswer = async (messages) => {
     throw new Error(message);
   }
 
-  return getOutputText(data);
+  return getOutputText(data) || createLocalFallbackAnswer(messages);
 };
 
 const server = createServer(async (request, response) => {
