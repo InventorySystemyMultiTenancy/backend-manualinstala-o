@@ -21,7 +21,10 @@ const MACHINEFRIEND_HISTORY_LIMIT = Number(
   process.env.MACHINEFRIEND_HISTORY_LIMIT || 6
 );
 const MACHINEFRIEND_MAX_OUTPUT_TOKENS = Number(
-  process.env.MACHINEFRIEND_MAX_OUTPUT_TOKENS || 700
+  process.env.MACHINEFRIEND_MAX_OUTPUT_TOKENS || 1200
+);
+const MACHINEFRIEND_EMPTY_RETRY_TOKENS = Number(
+  process.env.MACHINEFRIEND_EMPTY_RETRY_TOKENS || 1800
 );
 
 const MACHINEFRIEND_CONTEXT = `
@@ -106,8 +109,12 @@ const getOutputText = (data) => {
 
   return (data.output || [])
     .flatMap((item) => item.content || [])
-    .filter((content) => content.type === 'output_text')
-    .map((content) => content.text)
+    .filter((content) => ['output_text', 'text'].includes(content.type))
+    .map((content) => {
+      if (typeof content.text === 'string') return content.text;
+      if (typeof content.text?.value === 'string') return content.text.value;
+      return '';
+    })
     .join('\n')
     .trim();
 };
@@ -120,6 +127,10 @@ const getLastUserMessage = (messages) =>
 const createLocalFallbackAnswer = (messages) => {
   const lastMessage = String(getLastUserMessage(messages)).toLowerCase();
 
+  if (lastMessage.includes('online') || lastMessage.includes('internet')) {
+    return 'Vamos deixar online. Primeiro entre no Wi-Fi do celular e conecte na rede Machine Pay. Se ela nao aparecer, clique 7 vezes no botao escondido da caixinha para resetar a configuracao e procure a rede de novo. Quando abrir a tela da Machine Pay, va em Opcoes / Senha, crie uma senha e envie. Me avise quando essa tela pedir a senha para voltar ao inicio.';
+  }
+
   if (
     lastMessage.includes('sem chicote') &&
     (lastMessage.includes('noteiro') || lastMessage.includes('nota'))
@@ -127,7 +138,7 @@ const createLocalFallbackAnswer = (messages) => {
     return 'Claro. Primeiro desligue a maquina da tomada antes de mexer nos fios. Sem chicote, ligue vermelho da Machine Pay no positivo/energia do noteiro, preto no terra/negativo e branco no fio coin/pulso do noteiro. No noteiro geralmente energia e amarelo, coin e azul ou branco, e terra e preto ou roxo. Me diga quais cores aparecem no seu noteiro para eu confirmar com voce.';
   }
 
-  return 'Tive uma falha para montar a resposta automatica agora, mas sigo com voce. Me diga em uma frase o que aparece na Machine Pay ou em qual etapa voce travou.';
+  return 'Certo, vamos por partes. Primeiro me diga se voce esta na tela de configuracao da Machine Pay, na plataforma cyberpix.com.br, ou mexendo nos fios da maquina.';
 };
 
 const normalizeMessages = (messages) =>
@@ -139,7 +150,7 @@ const normalizeMessages = (messages) =>
       content: String(message.content || '').slice(0, 2_000),
     }));
 
-const createMachineFriendAnswer = async (messages) => {
+const requestMachineFriendAnswer = async (messages, maxOutputTokens) => {
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
@@ -150,7 +161,7 @@ const createMachineFriendAnswer = async (messages) => {
       model: OPENAI_MODEL,
       instructions: MACHINEFRIEND_CONTEXT,
       input: normalizeMessages(messages),
-      max_output_tokens: MACHINEFRIEND_MAX_OUTPUT_TOKENS,
+      max_output_tokens: maxOutputTokens,
     }),
   });
 
@@ -161,7 +172,23 @@ const createMachineFriendAnswer = async (messages) => {
     throw new Error(message);
   }
 
-  return getOutputText(data) || createLocalFallbackAnswer(messages);
+  return getOutputText(data);
+};
+
+const createMachineFriendAnswer = async (messages) => {
+  const answer = await requestMachineFriendAnswer(
+    messages,
+    MACHINEFRIEND_MAX_OUTPUT_TOKENS
+  );
+
+  if (answer) return answer;
+
+  const retryAnswer = await requestMachineFriendAnswer(
+    messages,
+    MACHINEFRIEND_EMPTY_RETRY_TOKENS
+  );
+
+  return retryAnswer || createLocalFallbackAnswer(messages);
 };
 
 const server = createServer(async (request, response) => {
